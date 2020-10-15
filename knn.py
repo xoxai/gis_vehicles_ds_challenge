@@ -49,9 +49,9 @@ def get_label(preds):
 #Function of passing through fuel level data
 #at every moment of time
 def cycle_data(data_time,delta,j):
-     
+     #delta selection condition
     try:
-        while  data_time[j+1].hour-data_time[j].hour<=1 \#delta selection condition
+        while  data_time[j+1].hour-data_time[j].hour<=1 \
             and data_time[j+1].day==data_time[j].day:
                 delta+=data_time[j+1].second-data_time[j].second
                 delta+=(data_time[j+1].minute-data_time[j].minute)*60
@@ -68,155 +68,177 @@ def cycle_data(data_time,delta,j):
 #time unit of delta time - time unit
 #flag of parsing new data - new_delta
 #value of scatter between fuelconsumtion and dump - scatter 
-def parse_data(vehicle,delta_fuel,delta_time,time_unit,new_delta,scatter):
+def parse_data(vehicle,delta_fuel,delta_time,time_unit,new_delta,scatter,type_classifying):
 
-    if time_unit=="m":
-        delta_time=delta_time*60
-    elif time_unit=="h":
-        delta_time=delta_time*3600
-    elif time_unit!="s":
-        print("Wrong time_unit argument")
-        print("Should be <s> or <m> or <h>")
-        print("Restart program with correct time_unit argument")
-        sys.exit("Error") 
+	if time_unit=="m":
+		delta_time=delta_time*60
+	elif time_unit=="h":
+		delta_time=delta_time*3600
+	elif time_unit!="s":
+		print("Wrong time_unit argument")
+		print("Should be <s> or <m> or <h>")
+		print("Restart program with correct time_unit argument")
+		sys.exit("Error") 
+		
+	#initialization    
+	data_time=[]
+	data_fuel_level=[]
+	data_delta_time=[]
+	data_delta_fuel_level=[]
+	data_delta_fuel_level_neg=[]
+	data_delta_time_neg=[]
+	fuel_dumps=[]
+	time_dumps=[]
+	max_fuel,min_time=[],[]
+	
+	delta=0
+	i,j,k=0,0,0  
+	average_delta_time_neg=0
+	average_delta_fuel_level_neg=0
+	
+	
+	try:
+		data_time=vehicles_data[vehicle].fuelLevel.DTIME
+		data_fuel_level=list(vehicles_data[vehicle].fuelLevel.BEVALUE)
+	except Exception:
+		print("Wrong name of data argument")       
+		print("Restart program with correct name data argument")
+		sys.exit("Error")
         
-    #initialization    
-    data_time=[]
-    data_fuel_level=[]
-    data_delta_time=[]
-    data_delta_fuel_level=[]
-    data_delta_fuel_level_neg=[]
-    data_delta_time_neg=[]
-    fuel_dumps=[]
-    time_dumps=[]
-    
-    delta=0
-    i,j,k=0,0,0  
-    average_delta_time_neg=0
-    average_delta_fuel_level_neg=0
-    
-    try:
-        data_time=vehicles_data[vehicle].fuelLevel.DTIME
-        data_fuel_level=list(vehicles_data[vehicle].fuelLevel.BEVALUE)
-    except Exception:
-        print("Wrong name of data argument")       
-        print("Restart program with correct name data argument")
-        sys.exit("Error")
+	#parsing new data
+	if new_delta=="Yes":
+		f1=open(vehicle.upper()+"_data_delta_time_+.txt","w")#file with value of delta time with positive values of delta
+		f2=open(vehicle.upper()+"_data_delta_fuel_+.txt","w")#file with positive values of delta
+		f3=open(vehicle.upper()+"_data_delta_fuel_-.txt","w")#file with negative values of delta
+		f4=open(vehicle.upper()+"_data_delta_time_-.txt","w")#file with value of delta time with negative values of delta
+		
+		print("It will take some time")
+		print("Please wait")
+		
+		while j!=len(data_time)-1:
+			k=j
+			delta,j=cycle_data(data_time,0,j)
+			if j!=-1:            
+				data_delta_time.append(delta)                        
+				data_delta_fuel_level.append(data_fuel_level[j+1]-data_fuel_level[k])
+				delta=0                
+				if data_delta_fuel_level[i]>=0:#adding value according to its sign
+					f1.write(str(data_delta_time[i])+"\n")
+					f2.write(str(data_delta_fuel_level[i])+"\n")
+				else:
+					f4.write(str(data_delta_time[i])+"\n")
+					f3.write(str(data_delta_fuel_level[i])+"\n")
+				i+=1
+				j+=1                
+			else:
+				break
+				
+		f1.close()
+		f2.close()
+		f3.close()
+		f4.close()
+	#to classify restart program with new_delta="No" 
+	elif new_delta=="No":
+		f1=open(vehicle.upper()+"_data_delta_time_+.txt","r")
+		f2=open(vehicle.upper()+"_data_delta_fuel_+.txt","r")
+		f3=open(vehicle.upper()+"_data_delta_fuel_-.txt","r")
+		f4=open(vehicle.upper()+"_data_delta_time_-.txt","r")
+		
+		data_delta_time=f1.readlines()
+		data_delta_time=[x.strip() for x in data_delta_time]
+		data_delta_fuel_level=f2.readlines()
+		data_delta_fuel_level=[x.strip() for x in data_delta_fuel_level]
+		data_delta_fuel_level_neg=f3.readlines()
+		data_delta_fuel_level_neg=[x.strip() for x in data_delta_fuel_level_neg]
+		data_delta_time_neg=f4.readlines()
+		data_delta_time_neg=[x.strip() for x in data_delta_time_neg]
+		#formation of the conditions for classification of the received data 
+		#based on the difference between the received fuel delta values and
+		#the average consumption for a specific value of the time delta, 
+		#taking into account the scatter from the average value
+		for i in range(0,len(data_delta_time),1):
+			data_delta_time[i]=int(data_delta_time[i])
+			data_delta_fuel_level[i]=float(data_delta_fuel_level[i])          
+		for i in range(0,len(data_delta_fuel_level_neg),1):
+			data_delta_fuel_level_neg[i]=float(data_delta_fuel_level_neg[i])
+			data_delta_time_neg[i]=int(data_delta_time_neg[i])
+			average_delta_fuel_level_neg+=data_delta_fuel_level_neg[i]
+			average_delta_time_neg+=data_delta_time_neg[i]
+		
+		average_delta_fuel_level_neg=abs(average_delta_fuel_level_neg/len(data_delta_fuel_level_neg))
+		average_delta_time_neg=average_delta_time_neg/len(data_delta_time_neg)
         
-    #parsing new data
-    if new_delta=="Yes":
-        f1=open(vehicle.upper()+"_data_delta_time_+.txt","w")#file with value of delta time with positive values of delta
-        f2=open(vehicle.upper()+"_data_delta_fuel_+.txt","w")#file with positive values of delta
-        f3=open(vehicle.upper()+"_data_delta_fuel_-.txt","w")#file with negative values of delta
-        f4=open(vehicle.upper()+"_data_delta_time_-.txt","w")#file with value of delta time with negative values of delta
+		if type_classifying=="1":
+			try:
+				scatter=int(scatter)
+			except Exception:
+				print("Wrong scatter argument")       
+				print("Restart program with correct scatter argument")
+				sys.exit("Error")
         
-        print("It will take some time")
-        print("Please wait")
-        
-        while j!=len(data_time)-1:
-            k=j
-            delta,j=cycle_data(data_time,0,j)
-            if j!=-1:            
-                data_delta_time.append(delta)                        
-                data_delta_fuel_level.append(data_fuel_level[j+1]-data_fuel_level[k])
-                delta=0                
-                if data_delta_fuel_level[i]>=0:#adding value according to its sign
-                    f1.write(str(data_delta_time[i])+"\n")
-                    f2.write(str(data_delta_fuel_level[i])+"\n")
-                else:
-                    f4.write(str(data_delta_time[i])+"\n")
-                    f3.write(str(data_delta_fuel_level[i])+"\n")
-                i+=1
-                j+=1                
-            else:
-                break
-                
-        f1.close()
-        f2.close()
-        f3.close()
-        f4.close()
-    #
-    elif new_delta=="No":
-        f1=open(vehicle.upper()+"_data_delta_time_+.txt","r")
-        f2=open(vehicle.upper()+"_data_delta_fuel_+.txt","r")
-        f3=open(vehicle.upper()+"_data_delta_fuel_-.txt","r")
-        f4=open(vehicle.upper()+"_data_delta_time_-.txt","r")
-        
-        data_delta_time=f1.readlines()
-        data_delta_time=[x.strip() for x in data_delta_time]
-        data_delta_fuel_level=f2.readlines()
-        data_delta_fuel_level=[x.strip() for x in data_delta_fuel_level]
-        data_delta_fuel_level_neg=f3.readlines()
-        data_delta_fuel_level_neg=[x.strip() for x in data_delta_fuel_level_neg]
-        data_delta_time_neg=f4.readlines()
-        data_delta_time_neg=[x.strip() for x in data_delta_time_neg]
-        #formation of the conditions for classification of the received data 
-        #based on the difference between the received fuel delta values and
-        #the average consumption for a specific value of the time delta, 
-        #taking into account the scatter from the average value
-        for i in range(0,len(data_delta_time),1):
-            data_delta_time[i]=int(data_delta_time[i])
-            data_delta_fuel_level[i]=float(data_delta_fuel_level[i])          
-        for i in range(0,len(data_delta_fuel_level_neg),1):
-            data_delta_fuel_level_neg[i]=float(data_delta_fuel_level_neg[i])
-            data_delta_time_neg[i]=int(data_delta_time_neg[i])
-            average_delta_fuel_level_neg+=data_delta_fuel_level_neg[i]
-            average_delta_time_neg+=data_delta_time_neg[i]
-        
-        average_delta_fuel_level_neg=abs(average_delta_fuel_level_neg/len(data_delta_fuel_level_neg))
-        average_delta_time_neg=average_delta_time_neg/len(data_delta_time_neg)
-        
-        try:
-            scatter=float(scatter)
-        except Exception:
-            print("Wrong scatter argument")       
-            print("Restart program with correct scatter argument")
-            sys.exit("Error")
-        
-        if scatter>100 or scatter<0:
-            print("Wrong scatter argument")       
-            print("Restart program with correct scatter argument")
-            sys.exit("Error")  
+			if scatter>100 or scatter<0:
+				print("Wrong scatter argument")       
+				print("Restart program with correct scatter argument")
+				sys.exit("Error")  
             
-        elif scatter==0:#no data will be added, just show recommended values of scatter
-            print("Founded scatter values:")
-            while scatter!=100:
-                for i in range(0,len(data_delta_fuel_level_neg),1):
-                    if abs(data_delta_fuel_level_neg[i])- average_delta_fuel_level_neg>scatter*average_delta_fuel_level_neg \
-                    and data_delta_time_neg[i]-average_delta_time_neg<scatter*average_delta_time_neg:                        
-                        if scatter!=0:
-                            print(scatter)
-                scatter+=1
-        else:        
-            for i in range(0,len(data_delta_fuel_level_neg),1):
-                if abs(data_delta_fuel_level_neg[i])- average_delta_fuel_level_neg>scatter*average_delta_fuel_level_neg \
-                and data_delta_time_neg[i]-average_delta_time_neg<scatter*average_delta_time_neg:
-                    fuel_dumps.append(data_delta_fuel_level_neg[i])
-                    time_dumps.append(data_delta_time_neg[i]) 
-                
-        
-              
-                      
-        f1.close()
-        f2.close()
-        f3.close()
-        f4.close()
-        
-    else:
-        print("Wrong new values of delta argument")       
-        print("Restart program with correct new valuse of delta argument")
-        sys.exit("Error")
+			elif scatter==0:#no data will be added, just show recommended values of scatter
+				print("Founded scatter values:")
+				while scatter!=100:
+					for i in range(0,len(data_delta_fuel_level_neg),1):
+						if abs(data_delta_fuel_level_neg[i])- average_delta_fuel_level_neg>(scatter*average_delta_fuel_level_neg/100) \
+						and data_delta_time_neg[i]-average_delta_time_neg<(scatter*average_delta_time_neg/100):                        
+							if scatter!=0:
+								print(scatter)
+					scatter+=1
+			else:        
+				for i in range(0,len(data_delta_fuel_level_neg),1):
+					if abs(data_delta_fuel_level_neg[i])- average_delta_fuel_level_neg>scatter*average_delta_fuel_level_neg \
+					and data_delta_time_neg[i]-average_delta_time_neg<scatter*average_delta_time_neg:
+						fuel_dumps.append(data_delta_fuel_level_neg[i])
+						time_dumps.append(data_delta_time_neg[i]) 
+						
+		elif type_classifying=="2":
+			try:
+				scatter=int(scatter)
+			except Exception:
+				print("Wrong scatter argument")       
+				print("Restart program with correct scatter argument")
+				sys.exit("Error")
+			for i in range(0,len(data_delta_fuel_level_neg),1):
+				data_delta_fuel_level_neg[i]=abs(data_delta_fuel_level_neg[i])
+			j=0
+			max_fuel=sorted(data_delta_fuel_level_neg,key=float,reverse=True)
+			min_time=sorted(data_delta_time_neg,key=float)
+			while max_fuel[j]>average_delta_fuel_level_neg+(scatter*average_delta_fuel_level_neg/100):		
+				fuel_dumps.append(max_fuel[j])				
+				time_dumps.append(min_time[j])
+				j+=1
+		else:
+			print("Wrong type of classifying argument")       
+			print("Restart program with correct type of classifying argument")
+			sys.exit("Error")
+			
+		f1.close()
+		f2.close()
+		f3.close()
+		f4.close()
+		
+		show_data(\
+			data_delta_time,\
+			data_delta_time_neg,\
+			time_dumps,\
+			data_delta_fuel_level,\
+			data_delta_fuel_level_neg,\
+			fuel_dumps,\
+			delta_time,\
+			delta_fuel)
+	else:
+		print("Wrong new values of delta argument")       
+		print("Restart program with correct new valuse of delta argument")
+		sys.exit("Error")
     
     
-    show_data(\
-    data_delta_time,\
-    data_delta_time_neg,\
-    time_dumps,\
-    data_delta_fuel_level,\
-    data_delta_fuel_level_neg,\
-    fuel_dumps,\
-    delta_time,\
-    delta_fuel)            
+               
             
 #The function of displaying the obtained data,
 #as well as forming data for correct prediction
@@ -305,9 +327,11 @@ def create_parser():
     parser.add_argument("--tu",help="time units")
     parser.add_argument("--nvd",help="new values of delta") 
     parser.add_argument("--sc",help="scatter") 
+    parser.add_argument("--tc",help="type of classify given data")
 
     return parser
-#Example of usage:python knn.py -p --name vehicle1 --df 40 --dt 50 --tu s --nvd No --sc 1
+#Example of usage:python knn.py -p --name vehicle1 --df 40 --dt 50 --tu s --nvd No --sc 1 --tc 1
+#python knn.py -p --name vehicle1 --df 40 --dt 50 --tu s --nvd No --sc 1 --tc 2
 #-p - use parse_data function
 #--name - enter vehicle type
 #--df -value of delta fuel argument
@@ -315,13 +339,16 @@ def create_parser():
 #--tu - 's' for seconds, 'm' for minutes and 'h' for hours
 #--nvd - parse new data or not ('Yes' or 'No')
 #--sc - value of scatter to create classified data
-
+#--tc - '1' is for average type of classifying (non-profit)
+#and '2' is for matching max of delta fuel with min of delta time with 
+#value of mac>average+(scatter*average)/100 (profit)
+#need to parse new data before classify
 def main():
     parser = create_parser()
     args = parser.parse_args()
     
     if args.parse:
-        parse_data(args.name,args.df,args.dt,args.tu,args.nvd,args.sc)    
+        parse_data(args.name,args.df,args.dt,args.tu,args.nvd,args.sc,args.tc)    
 
 if __name__=="__main__":
     main()
