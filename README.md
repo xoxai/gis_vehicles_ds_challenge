@@ -2,7 +2,9 @@
 
 ## What's this?
 Here is repository for solution of GIS Data Challenge
+
 **Team Name**: One Hot Team
+
 **Team Members**: Khokhlyavin Alex, Strepeltsova Victoria, Muratov Simar
 
 ## First of all
